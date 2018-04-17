@@ -68,6 +68,7 @@ public class PhotoAdapter extends RecyclerView.Adapter {
             });
         } else if (holder instanceof FooterViewHolder) {
             FooterViewHolder myHolder = (FooterViewHolder) holder;
+            //设置ProgressBar颜色
             myHolder.progressBar.getIndeterminateDrawable().setColorFilter(
                     context.getResources().getColor(R.color.black_alpha_60),
                     PorterDuff.Mode.SRC_IN);

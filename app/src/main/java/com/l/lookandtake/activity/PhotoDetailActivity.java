@@ -20,6 +20,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.SimpleTarget;
 import com.bumptech.glide.request.target.Target;
 import com.bumptech.glide.request.transition.Transition;
@@ -125,7 +128,21 @@ public class PhotoDetailActivity extends BaseActivity {
         photoId = intent.getStringExtra("photoId");
         photoUrl = intent.getStringExtra("photoUrl");
         //加载图片
-        Glide.with(this).load(photoUrl).into(ivPhoto);
+        Glide.with(this)
+                .load(photoUrl)
+                .listener(new RequestListener<Drawable>() {
+                    @Override
+                    public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                        ivPhoto.setImageDrawable(resource);
+                        return false;
+                    }
+                })
+                .submit(Target.SIZE_ORIGINAL, Target.SIZE_ORIGINAL);
         //设置滚动图片视差效果
         parallaxScrollView.setOnScrollChangedListener(new ParallaxScrollView.OnScrollChangedListener() {
             @Override
@@ -170,27 +187,23 @@ public class PhotoDetailActivity extends BaseActivity {
         tvDetailColor.setText(photoDetail.getColor());
         vColor.setBackgroundColor(Color.parseColor(photoDetail.getColor()));
         //拍摄位置
-        tvDetailLocation.setText(NotNull(photoDetail.getLocation().getTitle()));
+        tvDetailLocation.setText(photoDetail.getLocation() == null ? "Unknown" : photoDetail.getLocation().getTitle());
         //设备
-        tvDetailCamera.setText(NotNull(photoDetail.getExif().getModel()));
+        tvDetailCamera.setText(photoDetail.getExif().getModel());
         //曝光时间
-        tvDetailExposureTime.setText(NotNull(photoDetail.getExif().getExposure_time()));
+        tvDetailExposureTime.setText(photoDetail.getExif().getExposure_time());
         //光圈
-        tvDetailAperture.setText(NotNull(photoDetail.getExif().getAperture()));
+        tvDetailAperture.setText(photoDetail.getExif().getAperture());
         //焦距
-        tvDetailFocalLength.setText(NotNull(photoDetail.getExif().getFocal_length()));
+        tvDetailFocalLength.setText(photoDetail.getExif().getFocal_length());
         //感光度
-        tvDetailIso.setText(NotNull(String.valueOf(photoDetail.getExif().getIso())));
+        tvDetailIso.setText(String.valueOf(photoDetail.getExif().getIso()));
         //喜欢数
         tvDetailLikes.setText(String.valueOf(photoDetail.getLikes()));
         //浏览数
         tvDetailViews.setText(String.valueOf(photoDetail.getViews()));
         //下载数
         tvDetailDownload.setText(String.valueOf(photoDetail.getDownloads()));
-    }
-
-    private String NotNull(String s) {
-        return s == null ? "Unknown" : s;
     }
 
     @Override
