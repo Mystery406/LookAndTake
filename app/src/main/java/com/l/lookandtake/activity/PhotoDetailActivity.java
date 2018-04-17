@@ -29,6 +29,7 @@ import com.bumptech.glide.request.transition.Transition;
 import com.l.lookandtake.R;
 import com.l.lookandtake.api.ApiManager;
 import com.l.lookandtake.entity.PhotoDetail;
+import com.l.lookandtake.util.DownloadUtils;
 import com.l.lookandtake.util.FileUtils;
 import com.l.lookandtake.widget.ParallaxScrollView;
 import com.tbruyelle.rxpermissions2.RxPermissions;
@@ -113,6 +114,7 @@ public class PhotoDetailActivity extends BaseActivity {
     private CompositeDisposable compositeDisposable;
     private WallpaperManager wallpaperManager;
     private PhotoDetail photoDetail;
+    private String downloadLink;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -127,6 +129,7 @@ public class PhotoDetailActivity extends BaseActivity {
         Intent intent = getIntent();
         photoId = intent.getStringExtra("photoId");
         photoUrl = intent.getStringExtra("photoUrl");
+        downloadLink = intent.getStringExtra("downloadLink");
         //加载图片
         Glide.with(this)
                 .load(photoUrl)
@@ -225,7 +228,7 @@ public class PhotoDetailActivity extends BaseActivity {
                             @Override
                             public void accept(Boolean aBoolean) {
                                 if (aBoolean) {
-                                    downloadPhoto();
+                                    DownloadUtils.showDownloadDialog(PhotoDetailActivity.this, downloadLink);
                                 } else {
                                     Toast.makeText(PhotoDetailActivity.this, "请授予必要权限", Toast.LENGTH_SHORT).show();
                                 }
@@ -241,67 +244,6 @@ public class PhotoDetailActivity extends BaseActivity {
                 setWallpaper();
                 break;
         }
-    }
-
-    private void downloadPhoto() {
-        Disposable d = Observable.create(new ObservableOnSubscribe<File>() {
-            @Override
-            public void subscribe(ObservableEmitter<File> emitter) throws Exception {
-                File file = Glide.with(PhotoDetailActivity.this)
-                        .downloadOnly()
-                        .load(photoUrl)
-                        .submit(Target.SIZE_ORIGINAL, Target.SIZE_ORIGINAL)
-                        .get();
-                if (file == null) {
-                    emitter.onError(new Exception("下载出错！"));
-                }
-                emitter.onNext(file);
-            }
-        })
-                .subscribeOn(Schedulers.io())
-                .unsubscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<File>() {
-                    @Override
-                    public void accept(File file) throws Exception {
-                        savePhoto(file);
-                    }
-                }, new Consumer<Throwable>() {
-                    @Override
-                    public void accept(Throwable throwable) {
-                        Log.e("saveImg", "throwable:" + throwable.getMessage());
-                        Toast.makeText(PhotoDetailActivity.this, throwable.getMessage(), Toast.LENGTH_SHORT).show();
-                    }
-                });
-        if (compositeDisposable == null) {
-            compositeDisposable = new CompositeDisposable();
-        }
-        compositeDisposable.add(d);
-    }
-
-    private void savePhoto(File file) throws Exception {
-        String fileName = FileUtils.getFileMD5ToString(file) + ".png";
-        File dir = new File(Environment.getExternalStorageDirectory(), "LookAndTake");
-        if (!dir.exists()) {
-            dir.mkdirs();
-        }
-        File finalFile = new File(dir, fileName);
-        FileInputStream fis = new FileInputStream(file);
-        FileOutputStream fos = new FileOutputStream(finalFile);
-        byte[] buffer = new byte[2048];
-        int length = 0;
-        while ((length = fis.read(buffer)) != -1) {
-            fos.write(buffer, 0, length);
-            fos.flush();
-        }
-        fis.close();
-        fos.close();
-        //通知图库更新
-        Uri uri = Uri.fromFile(finalFile);
-        Intent intent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, uri);
-        sendBroadcast(intent);
-        String msg = String.format("图片已保存至 %s 文件夹", finalFile.getAbsolutePath());
-        Toast.makeText(PhotoDetailActivity.this, msg, Toast.LENGTH_SHORT).show();
     }
 
     private void sharePhoto() {

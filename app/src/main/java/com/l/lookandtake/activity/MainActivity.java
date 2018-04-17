@@ -108,6 +108,7 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
                 Intent intent = new Intent(MainActivity.this, PhotoDetailActivity.class);
                 intent.putExtra("photoId", photoInfoList.get(position).getId());
                 intent.putExtra("photoUrl", photoInfoList.get(position).getUrls().getSmall());
+                intent.putExtra("downloadLink", photoInfoList.get(position).getLinks().getDownload());
                 ActivityOptionsCompat optionsCompat = ActivityOptionsCompat
                         .makeSceneTransitionAnimation(MainActivity.this, view, getString(R.string.transition_photo));
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {

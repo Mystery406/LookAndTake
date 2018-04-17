@@ -5,7 +5,10 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,11 +17,22 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 import com.l.lookandtake.R;
+import com.l.lookandtake.constant.MemoryConstants;
 import com.l.lookandtake.entity.PhotoInfo;
+import com.l.lookandtake.util.ConvertUtils;
+import com.l.lookandtake.util.DownloadUtils;
+import com.liulishuo.okdownload.DownloadTask;
+import com.liulishuo.okdownload.core.cause.EndCause;
+import com.liulishuo.okdownload.core.cause.ResumeFailedCause;
+import com.liulishuo.okdownload.core.listener.DownloadListener1;
+import com.liulishuo.okdownload.core.listener.assist.Listener1Assist;
 
+import java.io.File;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,7 +68,7 @@ public class PhotoAdapter extends RecyclerView.Adapter {
     public void onBindViewHolder(@NonNull final RecyclerView.ViewHolder holder, int position) {
         if (holder instanceof ViewHolder) {
             ViewHolder myHolder = (ViewHolder) holder;
-            PhotoInfo photoInfo = photoInfoList.get(position);
+            final PhotoInfo photoInfo = photoInfoList.get(position);
             myHolder.frameBg.setBackgroundColor(Color.parseColor(photoInfo.getColor()));
             Glide.with(context)
                     .load(photoInfo.getUrls().getSmall())
@@ -64,6 +78,13 @@ public class PhotoAdapter extends RecyclerView.Adapter {
                 @Override
                 public void onClick(View v) {
                     onPhotoClickListener.onPhotoClick(v, holder.getAdapterPosition());
+                }
+            });
+            myHolder.ivDownload.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    // TODO: 2018/4/17 改成对activity提供接口方式，权限控制
+                    DownloadUtils.showDownloadDialog(context, photoInfo.getLinks().getDownload());
                 }
             });
         } else if (holder instanceof FooterViewHolder) {
