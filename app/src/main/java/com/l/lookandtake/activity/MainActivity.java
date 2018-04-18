@@ -25,6 +25,7 @@ import com.l.lookandtake.api.ApiManager;
 import com.l.lookandtake.callback.PhotoDiffCallback;
 import com.l.lookandtake.entity.PhotoInfo;
 import com.l.lookandtake.util.BarUtils;
+import com.l.lookandtake.util.DownloadUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -101,6 +102,7 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
         rvPhotos.setLayoutManager(layoutManager);
         adapter = new PhotoAdapter(this);
         rvPhotos.setAdapter(adapter);
+        //点击照片事件
         adapter.setOnPhotoClickListener(new PhotoAdapter.OnPhotoClickListener() {
             @Override
             public void onPhotoClick(View view, int position) {
@@ -116,6 +118,14 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
                 } else {
                     startActivity(intent);
                 }
+            }
+        });
+        //点击下载事件
+        adapter.setOnDownloadClickListener(new PhotoAdapter.OnDownloadClickListener() {
+            @Override
+            public void onDownloadClick(int position) {
+                DownloadUtils.showDownloadDialog(MainActivity.this,
+                        photoInfoList.get(position).getLinks().getDownload(), compositeDisposable);
             }
         });
         rvPhotos.addOnScrollListener(new RecyclerView.OnScrollListener() {

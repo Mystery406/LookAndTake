@@ -1,18 +1,14 @@
 package com.l.lookandtake.activity;
 
-import android.Manifest;
 import android.app.WallpaperManager;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -30,22 +26,14 @@ import com.l.lookandtake.R;
 import com.l.lookandtake.api.ApiManager;
 import com.l.lookandtake.entity.PhotoDetail;
 import com.l.lookandtake.util.DownloadUtils;
-import com.l.lookandtake.util.FileUtils;
 import com.l.lookandtake.widget.ParallaxScrollView;
-import com.tbruyelle.rxpermissions2.RxPermissions;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
 import de.hdodenhof.circleimageview.CircleImageView;
-import io.reactivex.Observable;
-import io.reactivex.ObservableEmitter;
-import io.reactivex.ObservableOnSubscribe;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
@@ -192,21 +180,25 @@ public class PhotoDetailActivity extends BaseActivity {
         //拍摄位置
         tvDetailLocation.setText(photoDetail.getLocation() == null ? "Unknown" : photoDetail.getLocation().getTitle());
         //设备
-        tvDetailCamera.setText(photoDetail.getExif().getModel());
+        tvDetailCamera.setText(NotNull(photoDetail.getExif().getModel()));
         //曝光时间
-        tvDetailExposureTime.setText(photoDetail.getExif().getExposure_time());
+        tvDetailExposureTime.setText(NotNull(photoDetail.getExif().getExposure_time()));
         //光圈
-        tvDetailAperture.setText(photoDetail.getExif().getAperture());
+        tvDetailAperture.setText(NotNull(photoDetail.getExif().getAperture()));
         //焦距
-        tvDetailFocalLength.setText(photoDetail.getExif().getFocal_length());
+        tvDetailFocalLength.setText(NotNull(photoDetail.getExif().getFocal_length()));
         //感光度
-        tvDetailIso.setText(String.valueOf(photoDetail.getExif().getIso()));
+        tvDetailIso.setText(NotNull(photoDetail.getExif().getIso()));
         //喜欢数
         tvDetailLikes.setText(String.valueOf(photoDetail.getLikes()));
         //浏览数
         tvDetailViews.setText(String.valueOf(photoDetail.getViews()));
         //下载数
         tvDetailDownload.setText(String.valueOf(photoDetail.getDownloads()));
+    }
+
+    private String NotNull(String s) {
+        return s == null ? "Unknown" : s;
     }
 
     @Override
@@ -222,18 +214,7 @@ public class PhotoDetailActivity extends BaseActivity {
                 finish();
                 break;
             case R.id.btn_download:
-                RxPermissions rxPermissions = new RxPermissions(this);
-                rxPermissions.request(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE)
-                        .subscribe(new Consumer<Boolean>() {
-                            @Override
-                            public void accept(Boolean aBoolean) {
-                                if (aBoolean) {
-                                    DownloadUtils.showDownloadDialog(PhotoDetailActivity.this, downloadLink);
-                                } else {
-                                    Toast.makeText(PhotoDetailActivity.this, "请授予必要权限", Toast.LENGTH_SHORT).show();
-                                }
-                            }
-                        });
+                DownloadUtils.showDownloadDialog(PhotoDetailActivity.this, downloadLink, compositeDisposable);
                 break;
             case R.id.btn_share:
                 if (photoDetail != null) {

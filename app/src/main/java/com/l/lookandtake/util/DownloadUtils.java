@@ -1,6 +1,7 @@
 package com.l.lookandtake.util;
 
-import android.content.Context;
+import android.Manifest;
+import android.app.Activity;
 import android.os.Environment;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -19,34 +20,46 @@ import com.liulishuo.okdownload.core.cause.EndCause;
 import com.liulishuo.okdownload.core.cause.ResumeFailedCause;
 import com.liulishuo.okdownload.core.listener.DownloadListener1;
 import com.liulishuo.okdownload.core.listener.assist.Listener1Assist;
+import com.tbruyelle.rxpermissions2.RxPermissions;
 
 import java.io.File;
 import java.text.DecimalFormat;
+
+import io.reactivex.disposables.CompositeDisposable;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
 
 /**
  * Created by L on 2018/4/17.
  * Description:
  */
 public final class DownloadUtils {
-    public static File getDownloadDir() {
-        File file = new File(Environment.getExternalStorageDirectory().getPath()
-                + File.separator + "LookAndTake" + File.separator);
-        if (!file.exists()) {
-            file.mkdirs();
+    public static void showDownloadDialog(final Activity activity, final String downloadLink,
+                                          CompositeDisposable compositeDisposable) {
+        RxPermissions rxPermissions = new RxPermissions(activity);
+        Disposable disposable = rxPermissions.request(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                .subscribe(new Consumer<Boolean>() {
+                    @Override
+                    public void accept(Boolean aBoolean) {
+                        if (aBoolean) {
+                            startDownload(activity, downloadLink);
+                        } else {
+                            Toast.makeText(activity, "请授予必要权限", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+        if (compositeDisposable == null) {
+            compositeDisposable = new CompositeDisposable();
         }
-        return file;
+        compositeDisposable.add(disposable);
     }
 
-    public static String getFilename(String url) {
-        return Util.md5(url) + ".png";
-    }
-
-    public static void showDownloadDialog(final Context context, String downloadLink) {
-        View view = LayoutInflater.from(context).inflate(R.layout.dialog_download, null, false);
+    private static void startDownload(final Activity activity, final String downloadLink) {
+        View view = LayoutInflater.from(activity).inflate(R.layout.dialog_download, null, false);
         final ProgressBar pb = view.findViewById(R.id.progress_bar);
         final TextView tvTitle = view.findViewById(R.id.tv_progress_title);
         final TextView tvSize = view.findViewById(R.id.tv_image_size);
-        final AlertDialog dialog = new AlertDialog.Builder(context)
+        final AlertDialog dialog = new AlertDialog.Builder(activity)
                 .setView(view)
                 .setCancelable(false)
                 .show();
@@ -83,10 +96,23 @@ public final class DownloadUtils {
             @Override
             public void taskEnd(@NonNull DownloadTask task, @NonNull EndCause cause, @Nullable Exception realCause, @NonNull Listener1Assist.Listener1Model model) {
                 String msg = realCause == null ? String.format("已下载至%s文件夹", "../LookAndTake") : "出错啦:" + realCause.getMessage();
-                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show();
                 dialog.dismiss();
             }
         });
+    }
+
+    private static File getDownloadDir() {
+        File file = new File(Environment.getExternalStorageDirectory().getPath()
+                + File.separator + "LookAndTake" + File.separator);
+        if (!file.exists()) {
+            file.mkdirs();
+        }
+        return file;
+    }
+
+    private static String getFilename(String url) {
+        return Util.md5(url) + ".png";
     }
 
     private static String getProgress(long currentOffset, long totalLength) {
