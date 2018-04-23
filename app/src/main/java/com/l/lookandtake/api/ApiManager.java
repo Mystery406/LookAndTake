@@ -1,8 +1,12 @@
 package com.l.lookandtake.api;
 
 import com.l.lookandtake.constant.ApiConstants;
+import com.l.lookandtake.util.SSLSocketFactoryCompat;
 
 import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.X509TrustManager;
 
 import okhttp3.OkHttpClient;
 import retrofit2.Retrofit;
@@ -14,16 +18,38 @@ import retrofit2.converter.gson.GsonConverterFactory;
  * Description:
  */
 public class ApiManager {
-    private static ApiManager apiManager;
+    private volatile static ApiManager apiManager;
     private final OkHttpClient client;
     private GankApi gankApi;
     private UnsplashApi unsplashApi;
 
     private ApiManager() {
-        client = new OkHttpClient.Builder()
+        OkHttpClient.Builder builder = new OkHttpClient.Builder()
                 .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
-                .build();
+                .readTimeout(10, TimeUnit.SECONDS);
+        try {
+            // 自定义一个信任所有证书的TrustManager，添加SSLSocketFactory的时候要用到
+            final X509TrustManager trustAllCert =
+                    new X509TrustManager() {
+                        @Override
+                        public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) {
+                        }
+
+                        @Override
+                        public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) {
+                        }
+
+                        @Override
+                        public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                            return new java.security.cert.X509Certificate[]{};
+                        }
+                    };
+            final SSLSocketFactory sslSocketFactory = new SSLSocketFactoryCompat(trustAllCert);
+            builder.sslSocketFactory(sslSocketFactory, trustAllCert);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        client = builder.build();
     }
 
     /**

@@ -15,9 +15,11 @@ import android.support.v7.util.DiffUtil;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Toast;
 
 import com.l.lookandtake.R;
 import com.l.lookandtake.adapter.PhotoAdapter;
@@ -27,15 +29,21 @@ import com.l.lookandtake.entity.PhotoInfo;
 import com.l.lookandtake.util.BarUtils;
 import com.l.lookandtake.util.DownloadUtils;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import io.reactivex.Observable;
+import io.reactivex.ObservableSource;
+import io.reactivex.Observer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
 
 public class MainActivity extends BaseActivity implements NavigationView.OnNavigationItemSelectedListener {
@@ -50,6 +58,7 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
     @BindView(R.id.refresh)
     SwipeRefreshLayout refreshLayout;
 
+    private static final String TAG = "RxJava";
     private int page = 1;
     private int perPage = 15;
     private boolean needCleanList;
@@ -59,6 +68,10 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
     private CompositeDisposable compositeDisposable;
     private LinearLayoutManager layoutManager;
     private DiffUtil.DiffResult diffResult;
+    private int currentRetryCount = 0;
+    private int maxRetryCount = 3;
+    private int waitRetryTime = 5;
+    private boolean isLoadingMore;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -88,6 +101,7 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
         refreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
+                Log.e(TAG, "onRefresh: 321");
                 page = 1;
                 needCleanList = true;
                 initSplashData();
@@ -139,16 +153,49 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
                 int lastVisibleItemPosition = layoutManager.findLastVisibleItemPosition();
                 if (lastVisibleItemPosition == photoInfoList.size() && !refreshLayout.isRefreshing()) {
                     //滑动到footerView时加载更多
-                    initSplashData();
+                    if (!isLoadingMore && page != 1) {
+                        Log.e(TAG, "onScrollStateChanged: 123");
+                        initSplashData();
+                    }
                 }
             }
         });
     }
 
     private void initSplashData() {
+        isLoadingMore = true;
         //获取Splash接口数据
-        Disposable d = ApiManager.getInstance().getUnsplashApi()
+        ApiManager.getInstance().getUnsplashApi()
                 .getUnsplashData(page, perPage)
+                .retryWhen(new Function<Observable<Throwable>, ObservableSource<?>>() {
+                    @Override
+                    public ObservableSource<?> apply(Observable<Throwable> throwableObservable) {
+                        return throwableObservable.flatMap(new Function<Throwable, ObservableSource<?>>() {
+                            @Override
+                            public ObservableSource<?> apply(Throwable throwable) {
+                                Log.e(TAG, "发生异常 = " + throwable.toString());
+                                if (throwable instanceof IOException) {
+                                    if (currentRetryCount < maxRetryCount) {
+                                        // 记录重试次数
+                                        currentRetryCount++;
+                                        Log.e(TAG, "重试次数 = " + currentRetryCount);
+                                        return Observable.just(1).delay(waitRetryTime, TimeUnit.SECONDS);
+                                    } else {
+                                        // 若重试次数已 > 设置重试次数，则不重试
+                                        isLoadingMore = false;
+                                        currentRetryCount = 0;
+                                        return Observable.error(new Throwable("重试次数已超过设置次数 = " + currentRetryCount + "，即 不再重试"));
+                                    }
+                                }
+                                // 若发生的异常不属于I/O异常，则不重试
+                                else {
+                                    isLoadingMore = false;
+                                    return Observable.error(new Throwable("发生了非网络异常（非I/O异常）"));
+                                }
+                            }
+                        });
+                    }
+                })
                 .doOnNext(new Consumer<List<PhotoInfo>>() {
                     @Override
                     public void accept(List<PhotoInfo> photoInfos) {
@@ -163,21 +210,37 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
                 .subscribeOn(Schedulers.io())
                 .unsubscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<List<PhotoInfo>>() {
+                .subscribe(new Observer<List<PhotoInfo>>() {
                     @Override
-                    public void accept(List<PhotoInfo> photoInfos) {
+                    public void onSubscribe(Disposable d) {
+                        if (compositeDisposable == null) {
+                            compositeDisposable = new CompositeDisposable();
+                        }
+                        compositeDisposable.add(d);
+                    }
+
+                    @Override
+                    public void onNext(List<PhotoInfo> photoInfos) {
                         diffResult.dispatchUpdatesTo(adapter);
                         adapter.setPhotoInfoList(photoInfoList);
                         rvPhotos.scrollToPosition(adapter.getItemCount() - perPage - 1);
                         page++;
                         needCleanList = false;
                         refreshLayout.setRefreshing(false);
+                        isLoadingMore = false;
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.e(TAG, "onError: " + e.toString());
+                        refreshLayout.setRefreshing(false);
+                        Toast.makeText(MainActivity.this, "网络连接异常", Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onComplete() {
                     }
                 });
-        if (compositeDisposable == null) {
-            compositeDisposable = new CompositeDisposable();
-        }
-        compositeDisposable.add(d);
     }
 
     @Override
